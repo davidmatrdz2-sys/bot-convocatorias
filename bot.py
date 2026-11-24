@@ -133,21 +133,27 @@ def extraer_plazas(titulo, texto_pagina):
     return "No especificado (consultar bases)"
 
 def extraer_plazo(soup, texto_pagina):
-    """Extrae la fecha de fin de plazo o indicación de presentación de instancias."""
+    """Extrae el rango completo del plazo de presentación de instancias (inicio y fin)."""
     if not soup:
         return "20 días hábiles tras publicación en BOE (consultar bases)"
 
     for elem in soup.find_all(["p", "div", "li", "span", "td", "dd"]):
         t = elem.get_text(" ", strip=True)
         if any(w in t.lower() for w in ["plazo", "instancias", "presentación", "fecha fin", "límite"]):
-            # Fecha tipo dd/mm/aaaa
-            m_fecha = re.search(r"([0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{4})", t)
-            if m_fecha:
-                return f"Hasta el {m_fecha.group(1)}"
-            # Fecha en texto (ej. 15 de diciembre de 2026)
-            m_fecha_txt = re.search(r"([0-9]{1,2}\s+de\s+[a-zA-ZáéíóúÁÉÍÓÚ]+\s+de\s+[0-9]{4})", t)
-            if m_fecha_txt:
-                return f"Hasta el {m_fecha_txt.group(1)}"
+            # 1. Buscar si hay dos fechas numéricas en el mismo elemento (ej. 15/11/2026 - 15/12/2026)
+            fechas = re.findall(r"[0-9]{1,2}[\/\-][0-9]{1,2}[\/\-][0-9]{4}", t)
+            if len(fechas) >= 2:
+                return f"Del {fechas[0]} al {fechas[1]}"
+            elif len(fechas) == 1:
+                return f"Hasta el {fechas[0]}"
+
+            # 2. Buscar rangos con fechas en texto (ej. 15 de noviembre de 2026 al 15 de diciembre de 2026)
+            fechas_txt = re.findall(r"[0-9]{1,2}\s+de\s+[a-zA-ZáéíóúÁÉÍÓÚ]+\s+de\s+[0-9]{4}", t)
+            if len(fechas_txt) >= 2:
+                return f"Del {fechas_txt[0]} al {fechas_txt[1]}"
+            elif len(fechas_txt) == 1:
+                return f"Hasta el {fechas_txt[0]}"
+
             if "20 d" in t.lower() or "días hábiles" in t.lower():
                 return "20 días hábiles desde publicación en BOE"
 
