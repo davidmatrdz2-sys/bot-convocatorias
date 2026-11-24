@@ -252,43 +252,73 @@ def main():
 
     print(f"\nProcesando y enviando avisos detallados de {len(nuevas)} publicaciones a Telegram...")
 
-    # Ordenar: primero convocatorias (más urgentes) y luego ofertas
-    nuevas.sort(key=lambda item: 0 if item[2]["clase"] == "convocatorias" else 1)
+    # Separar Convocatorias de Ofertas
+    convocatorias = [item for item in nuevas if item[2]["clase"] == "convocatorias"]
+    ofertas = [item for item in nuevas if item[2]["clase"] == "ofertas"]
 
-    for zona, clave, datos in nuevas:
+    # 1. Enviar Convocatorias: una a una (con sonido y máximo detalle urgente)
+    for zona, clave, datos in convocatorias:
         detalle = obtener_detalle_individual(datos)
 
         lugar_txt = html.escape(detalle["lugar"])
         plazas_txt = html.escape(detalle["plazas"])
-        titulo_txt = html.escape(datos["titulo"])
+        plazo_txt = html.escape(detalle["plazo"])
         url_bases = detalle["enlace_bases"]
         url_ficha = datos["url"]
 
-        if datos["clase"] == "convocatorias":
-            plazo_txt = html.escape(detalle["plazo"])
-            texto = (
-                f"🚨 <b>NUEVA CONVOCATORIA ({html.escape(zona.upper())})</b>\n"
-                f"<i>Proceso selectivo abierto: plazo de presentación de instancias</i>\n\n"
-                f"📍 <b>Municipio / Lugar:</b> {lugar_txt}\n"
-                f"👥 <b>Número de plazas:</b> {plazas_txt}\n"
-                f"⏳ <b>Plazo de instancias:</b> {plazo_txt}\n"
-                f"📄 <b>Documento Oficial Bases:</b> <a href=\"{url_bases}\">Ver Documento Oficial</a>\n\n"
-                f"🔗 <b>Ficha de la convocatoria:</b> <a href=\"{url_ficha}\">Abrir en OpoBusca</a>"
-            )
-            enviar_telegram(texto, silencioso=False)
-        else:
-            texto = (
-                f"📢 <b>NUEVA OFERTA DE EMPLEO PÚBLICO ({html.escape(zona.upper())})</b>\n"
-                f"<i>Plazas aprobadas (OEP en planificación, aún sin instancias)</i>\n\n"
-                f"📍 <b>Municipio / Lugar:</b> {lugar_txt}\n"
-                f"👥 <b>Número de plazas:</b> {plazas_txt}\n"
-                f"📌 <b>Publicación:</b> {titulo_txt}\n\n"
-                f"🔗 <b>Ficha de la oferta:</b> <a href=\"{url_ficha}\">Abrir en OpoBusca</a>"
-            )
-            enviar_telegram(texto, silencioso=True)
-
+        texto = (
+            f"🚨 <b>NUEVA CONVOCATORIA ({html.escape(zona.upper())})</b>\n"
+            f"<i>Proceso selectivo abierto: plazo de presentación de instancias</i>\n\n"
+            f"📍 <b>Municipio / Lugar:</b> {lugar_txt}\n"
+            f"👥 <b>Número de plazas:</b> {plazas_txt}\n"
+            f"⏳ <b>Plazo de instancias:</b> {plazo_txt}\n"
+            f"📄 <b>Documento Oficial Bases:</b> <a href=\"{url_bases}\">Ver Documento Oficial</a>\n\n"
+            f"🔗 <b>Ficha de la convocatoria:</b> <a href=\"{url_ficha}\">Abrir en OpoBusca</a>"
+        )
+        enviar_telegram(texto, silencioso=False)
         vistos.add(clave)
-        time.sleep(1.5)  # Pausa breve para respetar los límites de la API de Telegram
+        time.sleep(1.5)
+
+    # 2. Enviar Ofertas de Empleo Público: TODAS AGRUPADAS en un solo mensaje silencioso
+    if ofertas:
+        bloques_ofertas = []
+        for zona, clave, datos in ofertas:
+            detalle = obtener_detalle_individual(datos)
+            lugar_txt = html.escape(detalle["lugar"])
+            plazas_txt = html.escape(detalle["plazas"])
+            url_ficha = datos["url"]
+
+            bloques_ofertas.append(
+                f"🏛️ <b>{lugar_txt}</b> ({html.escape(zona)})\n"
+                f"   👥 <b>Plazas:</b> {plazas_txt}\n"
+                f"   🔗 <a href=\"{url_ficha}\">Ver ficha en OpoBusca</a>"
+            )
+            vistos.add(clave)
+
+        cabecera = (
+            f"📢 <b>RESUMEN DE OFERTAS DE EMPLEO PÚBLICO ({len(ofertas)} encontradas)</b>\n"
+            f"<i>Plazas aprobadas en OEP (en previsión administrativa, aún sin instancias):</i>\n\n"
+        )
+        cuerpo = "\n\n".join(bloques_ofertas)
+        texto_completo = cabecera + cuerpo
+
+        # Si supera el límite de longitud de Telegram (4096 caracteres), se envía en bloques seguros
+        if len(texto_completo) <= 4000:
+            enviar_telegram(texto_completo, silencioso=True)
+        else:
+            trozos = []
+            actual = cabecera
+            for b in bloques_ofertas:
+                if len(actual) + len(b) + 2 > 3800:
+                    trozos.append(actual)
+                    actual = b + "\n\n"
+                else:
+                    actual += b + "\n\n"
+            if actual.strip():
+                trozos.append(actual.strip())
+            for t in trozos:
+                enviar_telegram(t, silencioso=True)
+                time.sleep(1)
 
     with open(SEEN_FILE, "w", encoding="utf-8") as f:
         json.dump(sorted(vistos), f, indent=2, ensure_ascii=False)
