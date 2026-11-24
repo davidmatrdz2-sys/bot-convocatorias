@@ -22,8 +22,16 @@ PAGINAS = {
     ],
 }
 
-# Filtro: plazas de Policía Local y Policía Municipal
-PALABRAS = ("policia-local", "policia-municipal")
+# Filtros de oposición exactos:
+# 1. "Policía local"
+# 2. "Policía Local de Castilla La Mancha"
+# 3. "Policía Municipal de Madrid"
+FILTROS_OPOSICIONES = (
+    "policia-local",
+    "policia-local-de-castilla-la-mancha",
+    "policia-municipal-de-madrid",
+    "policia-municipal",
+)
 SEEN_FILE = "seen.json"
 
 HEADERS = {
@@ -54,11 +62,16 @@ def obtener(url_base, max_paginas=4):
             if not m:
                 continue
             clase, tipo, lugar, id_num = m.groups()
-            tipo_lower = tipo.lower()
-            if not any(p in tipo_lower for p in PALABRAS):
-                continue
-
             titulo = a.get("title") or " ".join(a.get_text(" ", strip=True).split())
+            titulo_lower = titulo.lower()
+
+            # Comprobar si coincide con alguno de los filtros tanto en el enlace como en el título
+            coincide = (
+                any(f in tipo_lower for f in FILTROS_OPOSICIONES) or
+                any(f.replace("-", " ") in titulo_lower for f in FILTROS_OPOSICIONES)
+            )
+            if not coincide:
+                continue
             if not titulo or len(titulo) < 5:
                 titulo = f"Policía en {lugar.replace('-', ' ').title()}"
 
