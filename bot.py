@@ -30,7 +30,6 @@ FILTROS_OPOSICIONES = (
     "policia-local",
     "policia-local-de-castilla-la-mancha",
     "policia-municipal-de-madrid",
-    "policia-municipal",
 )
 SEEN_FILE = "seen.json"
 
