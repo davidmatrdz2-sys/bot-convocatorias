@@ -37,9 +37,12 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 }
 
-def obtener(url_base, max_paginas=4):
+session = requests.Session()
+session.headers.update(HEADERS)
+
+def obtener(url_base, max_paginas=2):
     """
-    Recorre las páginas (siguiendo la paginación hasta max_paginas) y extrae las
+    Recorre las páginas (máximo 2 páginas recientes por sección) y extrae las
     convocatorias u ofertas de Policía Local / Municipal.
     """
     resultado = {}
@@ -48,11 +51,12 @@ def obtener(url_base, max_paginas=4):
 
     while url_actual and pagina <= max_paginas:
         try:
-            r = requests.get(url_actual, headers=HEADERS, timeout=30)
+            print(f" -> Consultando {url_actual} (página {pagina})...", flush=True)
+            r = session.get(url_actual, timeout=12)
             r.raise_for_status()
             soup = BeautifulSoup(r.text, "html.parser")
         except Exception as e:
-            print(f"Error al cargar {url_actual}: {e}")
+            print(f"Aviso al cargar {url_actual}: {e}", flush=True)
             break
 
         for a in soup.find_all("a", href=True):
@@ -82,17 +86,20 @@ def obtener(url_base, max_paginas=4):
                 "tipo_slug": tipo,
             }
 
-        # Buscar botón o enlace 'Siguiente' en la paginación
+        # Buscar botón o enlace 'Siguiente' asegurando que pertenece a la misma sección
         siguiente = None
         for a in soup.find_all("a", href=True):
             texto = a.get_text(" ", strip=True).lower()
             rel = a.get("rel", [])
             aria = a.get("aria-label", "").lower()
-            if "siguiente" in texto or "next" in rel or "siguiente" in aria or texto in [">", "»"]:
-                siguiente = urljoin(url_actual, a["href"])
-                break
+            if "siguiente" in texto or "next" in rel or "siguiente" in aria:
+                candidato = urljoin(url_actual, a["href"])
+                # Seguridad: no salir de la misma sección base
+                if candidato.startswith(url_base) and candidato != url_actual:
+                    siguiente = candidato
+                    break
 
-        if siguiente and siguiente != url_actual:
+        if siguiente:
             url_actual = siguiente
             pagina += 1
         else:
@@ -197,12 +204,12 @@ def obtener_detalle_individual(datos):
     soup = None
     texto_pagina = ""
     try:
-        r = requests.get(url, headers=HEADERS, timeout=20)
+        r = session.get(url, timeout=10)
         if r.ok:
             soup = BeautifulSoup(r.text, "html.parser")
             texto_pagina = soup.get_text(" ", strip=True)
     except Exception as e:
-        print(f"Aviso al descargar ficha {url}: {e}")
+        print(f"Aviso al descargar ficha {url}: {e}", flush=True)
 
     plazas = extraer_plazas(titulo, texto_pagina)
     plazo = extraer_plazo(soup, texto_pagina) if soup else "20 días hábiles tras publicación en BOE"
