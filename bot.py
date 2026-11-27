@@ -322,8 +322,10 @@ def main():
             plazas_txt = html.escape(detalle["plazas"])
             url_ficha = datos["url"]
 
+            # Evitar repetir la provincia si ya viene en el lugar (ej. Getafe (Madrid))
+            etiqueta_zona = f" ({html.escape(zona)})" if zona.lower() not in lugar_txt.lower() else ""
             bloques_ofertas.append(
-                f"🏛️ <b>{lugar_txt}</b> ({html.escape(zona)})\n"
+                f"🏛️ <b>{lugar_txt}</b>{etiqueta_zona}\n"
                 f"   👥 <b>Plazas:</b> {plazas_txt}\n"
                 f"   🔗 <a href=\"{url_ficha}\">Ver ficha en OpoBusca</a>"
             )
