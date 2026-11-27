@@ -66,13 +66,19 @@ def obtener(url_base, max_paginas=2):
             if not m:
                 continue
             clase, tipo, lugar, id_num = m.groups()
+            tipo_lower = tipo.lower()
             titulo = a.get("title") or " ".join(a.get_text(" ", strip=True).split())
             titulo_lower = titulo.lower()
 
             # Comprobar si coincide con alguno de los filtros tanto en el enlace como en el título
             coincide = (
                 any(f in tipo_lower for f in FILTROS_OPOSICIONES) or
-                any(f.replace("-", " ") in titulo_lower for f in FILTROS_OPOSICIONES)
+                "policia-local" in tipo_lower or
+                "policia-municipal" in tipo_lower or
+                "policia local" in titulo_lower or
+                "policía local" in titulo_lower or
+                "policia municipal" in titulo_lower or
+                "policía municipal" in titulo_lower
             )
             if not coincide:
                 continue
