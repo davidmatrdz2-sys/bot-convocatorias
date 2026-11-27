@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+FORZAR_ENVIO = os.environ.get("FORZAR_ENVIO", "").lower() in ("true", "1", "yes")
 
 # Páginas de OpoBusca que revisamos (convocatorias y ofertas de cada comunidad)
 PAGINAS = {
@@ -243,12 +244,14 @@ def main():
         raise SystemExit("ERROR: Debes definir las variables de entorno TELEGRAM_TOKEN y TELEGRAM_CHAT_ID")
 
     vistos = set()
-    if os.path.exists(SEEN_FILE):
+    if not FORZAR_ENVIO and os.path.exists(SEEN_FILE):
         try:
             with open(SEEN_FILE, "r", encoding="utf-8") as f:
                 vistos = set(json.load(f))
         except Exception as e:
-            print(f"Aviso al leer {SEEN_FILE}: {e}. Se reiniciará la lista de vistos.")
+            print(f"Aviso al leer {SEEN_FILE}: {e}. Se reiniciará la lista de vistos.", flush=True)
+    elif FORZAR_ENVIO:
+        print("⚡ Modo reenvío forzado activo: se reenviarán todas las plazas publicadas.", flush=True)
 
     nuevas = []
     errores = []

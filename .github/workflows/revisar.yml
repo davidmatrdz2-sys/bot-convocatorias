@@ -4,7 +4,13 @@ on:
   schedule:
     # Se ejecuta automáticamente cada 3 horas
     - cron: "0 */3 * * *"
-  workflow_dispatch: # Permite lanzarlo manualmente con un clic en la pestaña Actions
+  workflow_dispatch:
+    inputs:
+      forzar_envio:
+        description: 'Marcar para reenviar todas las plazas (ignorar memoria)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -31,6 +37,7 @@ jobs:
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FORZAR_ENVIO: ${{ inputs.forzar_envio }}
 
       - name: Guardar historial de avisos (seen.json)
         run: |
